@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — Motion Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root {
+    --bg: #050810; --panel: #0a0f1e; --card: #0d1428;
+    --border: #1a2a4a; --border-glow: #0066ff;
+    --accent: #00d4ff; --accent2: #00ff88; --danger: #ff2d55; --warn: #ff9500;
+    --text: #c8d8f0; --dim: #4a6080;
+    --grid: rgba(0,100,255,0.06);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Exo 2', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh;
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 50px 50px; }
+  
+  header {
+    background: linear-gradient(90deg, rgba(0,20,60,0.95), rgba(5,8,16,0.95));
+    border-bottom: 1px solid var(--border); padding: 0 24px; height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px);
+    box-shadow: 0 0 30px rgba(0,100,255,0.15);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, #0066ff, #00d4ff);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; box-shadow: 0 0 20px rgba(0,100,255,0.5); }
+  .logo-text h1 { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 2px; text-transform: uppercase; }
+  .logo-text span { font-family: 'Share Tech Mono'; font-size: 11px; color: var(--accent); letter-spacing: 3px; }
+  .header-btns { display: flex; gap: 10px; }
+  .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 1px solid; transition: all 0.2s; text-decoration: none; display: flex; align-items: center; gap: 6px; }
+  .btn-primary { background: rgba(0,100,255,0.15); border-color: var(--border-glow); color: var(--accent); }
+  .btn-primary:hover { background: rgba(0,100,255,0.3); }
+  .btn-success { background: rgba(0,255,136,0.1); border-color: var(--accent2); color: var(--accent2); }
+  .btn-success:hover { background: rgba(0,255,136,0.2); }
+  .btn-danger { background: rgba(255,45,85,0.1); border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: rgba(255,45,85,0.2); }
+  .btn-warn { background: rgba(255,149,0,0.1); border-color: var(--warn); color: var(--warn); }
+  .btn-warn:hover { background: rgba(255,149,0,0.2); }
+
+  .admin-layout { display: flex; min-height: calc(100vh - 64px); }
+  
+  /* NAV */
+  .nav-sidebar {
+    width: 220px; background: var(--panel); border-right: 1px solid var(--border);
+    padding: 20px 0; position: sticky; top: 64px; height: calc(100vh - 64px);
+  }
+  .nav-section { padding: 8px 16px 4px; font-size: 10px; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 20px; font-size: 13px; font-weight: 500;
+    color: var(--dim); cursor: pointer; transition: all 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(0,100,255,0.05); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,212,255,0.05); }
+  .nav-item i { width: 16px; text-align: center; }
+
+  /* CONTENT */
+  .content { flex: 1; padding: 24px; overflow-y: auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+  
+  .page-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .page-subtitle { font-size: 13px; color: var(--dim); margin-bottom: 24px; }
+  
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .card-header { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  
+  /* FORM */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: block; }
+  .form-input {
+    width: 100%; padding: 10px 14px;
+    background: rgba(0,20,60,0.4); border: 1px solid var(--border);
+    border-radius: 6px; color: #fff; font-family: 'Exo 2', sans-serif;
+    font-size: 14px; outline: none; transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%234a6080' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 12px; padding-right: 36px; }
+
+  /* TOGGLE */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+  .toggle-label { font-size: 14px; }
+  .toggle-sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .toggle {
+    position: relative; width: 48px; height: 26px;
+    background: #1a2a4a; border-radius: 13px; cursor: pointer;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--border-glow); }
+  .toggle::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 20px; height: 20px; border-radius: 50%; background: #fff;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(22px); }
+
+  /* CAMERA CONFIG */
+  .cam-config { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cam-item {
+    background: rgba(0,20,60,0.3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+  }
+  .cam-item-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cam-item-title { font-size: 13px; font-weight: 600; color: var(--accent2); display: flex; align-items: center; gap: 6px; }
+
+  /* SCHEDULE */
+  .days-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .day-btn {
+    padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); background: transparent;
+    color: var(--dim); transition: all 0.15s;
+  }
+  .day-btn.selected { background: rgba(0,100,255,0.2); border-color: var(--border-glow); color: var(--accent); }
+
+  /* GALLERY */
+  .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .media-item {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    cursor: pointer; transition: border-color 0.2s;
+  }
+  .media-item:hover { border-color: var(--accent); }
+  .media-item img { width: 100%; height: 100px; object-fit: cover; display: block; }
+  .media-meta { padding: 6px 8px; font-size: 10px; color: var(--dim); font-family: 'Share Tech Mono'; }
+  
+  .rec-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px; background: rgba(0,20,60,0.3); border: 1px solid var(--border);
+    border-radius: 6px; margin-bottom: 8px;
+  }
+  .rec-info { font-size: 12px; }
+  .rec-name { font-family: 'Share Tech Mono'; color: var(--accent); }
+  .rec-meta { color: var(--dim); margin-top: 2px; }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    padding: 12px 20px; border-radius: 8px; font-size: 13px;
+    display: none; align-items: center; gap: 8px; animation: fadeIn 0.3s; }
+  .toast-success { background: rgba(0,255,136,0.15); border: 1px solid var(--accent2); color: #fff; display: flex !important; }
+  .toast-error { background: rgba(255,45,85,0.15); border: 1px solid var(--danger); color: #fff; display: flex !important; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .alert-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .alert-table th { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); }
+  .alert-table td { padding: 10px 12px; border-bottom: 1px solid rgba(26,42,74,0.4); }
+  .alert-table tr:hover td { background: rgba(0,100,255,0.04); }
+  .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: rgba(255,45,85,0.15); color: var(--danger); border: 1px solid rgba(255,45,85,0.3); }
+  .badge-blue { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+
+  .stat-overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .overview-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .overview-val { font-family: 'Share Tech Mono'; font-size: 28px; color: #fff; font-weight: bold; }
+  .overview-label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  .overview-icon { font-size: 22px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-icon"><i class="fas fa-video"></i></div>
+    <div class="logo-text">
+      <h1>Motion Detection</h1>
+      <span>ADMIN PANEL</span>
+    </div>
+  </div>
+  <div class="header-btns">
+    <button class="btn btn-success" onclick="saveAllSettings()"><i class="fas fa-save"></i> Save Settings</button>
+    <a href="/" class="btn btn-primary"><i class="fas fa-desktop"></i> Dashboard</a>
+    <a href="/logout" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Logout</a>
+  </div>
+</header>
+
+<div class="admin-layout">
+  <nav class="nav-sidebar">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="showPage('dashboard')"><i class="fas fa-chart-line"></i> Dashboard</div>
+    <div class="nav-section">Configuration</div>
+    <div class="nav-item" onclick="showPage('cameras')"><i class="fas fa-video"></i> Cameras</div>
+    <div class="nav-item" onclick="showPage('detection')"><i class="fas fa-brain"></i> Detection AI</div>
+    <div class="nav-item" onclick="showPage('schedule')"><i class="fas fa-clock"></i> Schedule</div>
+    <div class="nav-item" onclick="showPage('telegram')"><i class="fab fa-telegram"></i> Telegram</div>
+    <div class="nav-section">Records</div>
+    <div class="nav-item" onclick="showPage('alerts')"><i class="fas fa-bell"></i> Alert Log</div>
+    <div class="nav-item" onclick="showPage('snapshots')"><i class="fas fa-images"></i> Snapshots</div>
+    <div class="nav-item" onclick="showPage('recordings')"><i class="fas fa-film"></i> Recordings</div>
+    <div class="nav-section">System</div>
+    <div class="nav-item" onclick="showPage('general')"><i class="fas fa-sliders"></i> General</div>
+  </nav>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">System Overview</div>
+      <div class="page-subtitle">Real-time system status and statistics</div>
+      <div class="stat-overview">
+        <div class="overview-card"><div class="overview-icon" style="color:var(--accent)">📹</div><div class="overview-val" id="ov-cams">0</div><div class="overview-label">Active Cameras</div></div>
+        <div class="overview-card"><div class="overview-icon" style="color:var(--danger)">🚨</div><div class="overview-val" id="ov-total">0</div><div class="overview-label">Total Detections</div></div>
+        <div class="overview-card"><div class="overview-icon" style="color:var(--accent2)">📅</div><div class="overview-val" id="ov-today">0</div><div class="overview-label">Today's Detections</div></div>
+        <div class="overview-card"><div class="overview-icon" style="color:var(--warn)">✈️</div><div class="overview-val" id="ov-alerts">0</div><div class="overview-label">Alerts Sent</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><i class="fas fa-circle-info"></i> System Info</div>
+          <div style="display:grid;gap:10px;font-size:13px;">
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--dim)">Detection AI</span><span id="si-yolo" style="color:var(--accent2)">Loading...</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--dim)">Schedule Active</span><span id="si-sched">Loading...</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--dim)">Detection Enabled</span><span id="si-detect">Loading...</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--dim)">Last Detection</span><span id="si-last" style="font-family:'Share Tech Mono';color:var(--accent)">—</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="fas fa-video"></i> Camera Status</div>
+          <div id="cam-status-grid" style="display:grid;gap:8px;font-size:13px;"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><i class="fas fa-bolt"></i> Quick Actions</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="toggleDetection()"><i class="fas fa-power-off"></i> Toggle Detection</button>
+          <button class="btn btn-warn" onclick="clearAlerts()"><i class="fas fa-trash"></i> Clear Alert Log</button>
+          <button class="btn btn-success" onclick="testTelegram()"><i class="fab fa-telegram"></i> Test Telegram</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAMERAS -->
+    <div class="page" id="page-cameras">
+      <div class="page-title">Camera Configuration</div>
+      <div class="page-subtitle">Configure up to 4 camera sources (webcam index, RTSP URL, or file path)</div>
+      <div class="cam-config" id="camConfigGrid"></div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><i class="fas fa-info-circle"></i> Camera Source Examples</div>
+        <div style="font-size:13px;line-height:1.8;color:var(--dim)">
+          <div>• <span style="font-family:'Share Tech Mono';color:var(--accent)">0, 1, 2, 3</span> — Local webcam by index</div>
+          <div>• <span style="font-family:'Share Tech Mono';color:var(--accent)">rtsp://192.168.1.100:554/stream</span> — IP camera RTSP stream</div>
+          <div>• <span style="font-family:'Share Tech Mono';color:var(--accent)">http://192.168.1.100/video</span> — IP camera HTTP stream</div>
+          <div>• <span style="font-family:'Share Tech Mono';color:var(--accent)">/path/to/video.mp4</span> — Video file</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETECTION -->
+    <div class="page" id="page-detection">
+      <div class="page-title">Detection AI Settings</div>
+      <div class="page-subtitle">Configure YOLO detection parameters</div>
+      <div class="card">
+        <div class="card-header"><i class="fas fa-brain"></i> YOLO Configuration</div>
+        <div style="margin-bottom:16px;padding:12px;border-radius:8px;{% if yolo_available %}background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2){% else %}background:rgba(255,149,0,0.05);border:1px solid rgba(255,149,0,0.2){% endif %}">
+          <div style="font-size:13px;font-weight:600;{% if yolo_available %}color:var(--accent2){% else %}color:var(--warn){% endif %}">
+            <i class="fas {% if yolo_available %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+            {% if yolo_available %}YOLO v3-Tiny model loaded{% else %}YOLO not loaded — using HOG fallback{% endif %}
+          </div>
+          {% if not yolo_available %}
+          <div style="font-size:12px;color:var(--dim);margin-top:6px">
+            To enable YOLO, download yolov3-tiny.weights + yolov3-tiny.cfg + coco.names to the <code style="color:var(--accent)">models/</code> folder and restart.
+          </div>
+          {% endif %}
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Confidence Threshold</label>
+            <input type="range" id="conf-threshold" min="0.1" max="0.9" step="0.05" style="width:100%;accent-color:var(--accent)">
+            <div style="text-align:right;font-family:'Share Tech Mono';color:var(--accent);font-size:13px;margin-top:4px" id="conf-val">0.50</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Alert Cooldown (seconds)</label>
+            <input type="number" class="form-input" id="alert-cooldown" min="5" max="3600" placeholder="60">
+          </div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Detection Enabled</div><div class="toggle-sub">Master switch for all detection</div></div>
+          <div class="toggle" id="tog-detect" onclick="toggleToggle('tog-detect')"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><i class="fas fa-save"></i> Storage Settings</div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Recording Duration (seconds)</label>
+            <input type="number" class="form-input" id="rec-duration" min="5" max="300" placeholder="30">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Snapshots to Keep</label>
+            <input type="number" class="form-input" id="max-snaps" min="10" max="5000" placeholder="500">
+          </div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Save Snapshots</div><div class="toggle-sub">Auto-save JPEG snapshot on detection</div></div>
+          <div class="toggle" id="tog-snaps" onclick="toggleToggle('tog-snaps')"></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Save Recordings</div><div class="toggle-sub">Record video for N seconds after detection</div></div>
+          <div class="toggle" id="tog-recs" onclick="toggleToggle('tog-recs')"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE -->
+    <div class="page" id="page-schedule">
+      <div class="page-title">Detection Schedule</div>
+      <div class="page-subtitle">Set specific times and days when detection should be active</div>
+      <div class="card">
+        <div class="card-header"><i class="fas fa-clock"></i> Time Schedule</div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Enable Schedule</div><div class="toggle-sub">Only detect during specified hours/days</div></div>
+          <div class="toggle" id="tog-sched" onclick="toggleToggle('tog-sched')"></div>
+        </div>
+        <div id="schedule-options" style="margin-top:16px">
+          <div class="grid-2" style="margin-bottom:16px">
+            <div class="form-group">
+              <label class="form-label">Start Time</label>
+              <input type="time" class="form-input" id="sched-start" value="08:00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">End Time</label>
+              <input type="time" class="form-input" id="sched-end" value="18:00">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Active Days</label>
+            <div class="days-grid" id="days-grid">
+              <button class="day-btn" data-day="Monday" onclick="toggleDay(this)">Mon</button>
+              <button class="day-btn" data-day="Tuesday" onclick="toggleDay(this)">Tue</button>
+              <button class="day-btn" data-day="Wednesday" onclick="toggleDay(this)">Wed</button>
+              <button class="day-btn" data-day="Thursday" onclick="toggleDay(this)">Thu</button>
+              <button class="day-btn" data-day="Friday" onclick="toggleDay(this)">Fri</button>
+              <button class="day-btn" data-day="Saturday" onclick="toggleDay(this)">Sat</button>
+              <button class="day-btn" data-day="Sunday" onclick="toggleDay(this)">Sun</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TELEGRAM -->
+    <div class="page" id="page-telegram">
+      <div class="page-title">Telegram Notifications</div>
+      <div class="page-subtitle">Receive instant alerts with snapshots via Telegram bot</div>
+      <div class="card">
+        <div class="card-header"><i class="fab fa-telegram"></i> Bot Configuration</div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Enable Telegram Alerts</div><div class="toggle-sub">Send detection alerts via Telegram</div></div>
+          <div class="toggle" id="tog-tg" onclick="toggleToggle('tog-tg')"></div>
+        </div>
+        <div style="margin-top:16px">
+          <div class="form-group">
+            <label class="form-label">Bot Token</label>
+            <input type="text" class="form-input" id="tg-token" placeholder="1234567890:ABCdef...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Chat ID</label>
+            <input type="text" class="form-input" id="tg-chatid" placeholder="-1001234567890 or 123456789">
+          </div>
+          <button class="btn btn-success" onclick="testTelegram()" style="margin-top:4px"><i class="fab fa-telegram"></i> Test Connection</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><i class="fas fa-info-circle"></i> How to Setup Telegram Bot</div>
+        <ol style="font-size:13px;color:var(--dim);line-height:2;padding-left:20px">
+          <li>Open Telegram, search for <span style="font-family:'Share Tech Mono';color:var(--accent)">@BotFather</span></li>
+          <li>Send <span style="font-family:'Share Tech Mono';color:var(--accent)">/newbot</span> and follow instructions</li>
+          <li>Copy the Bot Token and paste it above</li>
+          <li>Start a chat with your bot or add it to a group</li>
+          <li>Get your Chat ID from <span style="font-family:'Share Tech Mono';color:var(--accent)">@userinfobot</span></li>
+          <li>Click "Test Connection" to verify</li>
+        </ol>
+      </div>
+      <div class="toggle-row" style="padding:0">
+        <div><div class="toggle-label">Send Snapshot with Alert</div><div class="toggle-sub">Include detection image in Telegram message</div></div>
+        <div class="toggle" id="tog-notify" onclick="toggleToggle('tog-notify')"></div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="page" id="page-alerts">
+      <div class="page-title">Alert Log</div>
+      <div class="page-subtitle">History of all human detection events</div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn btn-danger" onclick="clearAlerts()"><i class="fas fa-trash"></i> Clear All</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="alert-table">
+          <thead><tr><th>#</th><th>Camera</th><th>Time</th><th>Humans</th><th>Snapshot</th></tr></thead>
+          <tbody id="alertTableBody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--dim)">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SNAPSHOTS -->
+    <div class="page" id="page-snapshots">
+      <div class="page-title">Snapshots</div>
+      <div class="page-subtitle">Auto-saved detection images</div>
+      <div class="media-grid" id="snapshotGrid"><div style="color:var(--dim);font-size:13px">Loading...</div></div>
+    </div>
+
+    <!-- RECORDINGS -->
+    <div class="page" id="page-recordings">
+      <div class="page-title">Recordings</div>
+      <div class="page-subtitle">Auto-saved video recordings triggered by detection</div>
+      <div id="recordingsList"><div style="color:var(--dim);font-size:13px">Loading...</div></div>
+    </div>
+
+    <!-- GENERAL -->
+    <div class="page" id="page-general">
+      <div class="page-title">General Settings</div>
+      <div class="page-subtitle">System-wide configuration</div>
+      <div class="card">
+        <div class="card-header"><i class="fas fa-lock"></i> Security</div>
+        <div class="form-group">
+          <label class="form-label">Admin Password</label>
+          <input type="password" class="form-input" id="admin-pass" placeholder="Enter new password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <input type="password" class="form-input" id="admin-pass2" placeholder="Confirm password">
+        </div>
+        <button class="btn btn-primary" onclick="changePassword()"><i class="fas fa-key"></i> Update Password</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Snapshot Modal -->
+<div id="snapModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:1000;display:none;align-items:center;justify-content:center" onclick="this.style.display='none'">
+  <img id="snapModalImg" style="max-width:90%;max-height:90%;border-radius:8px;border:1px solid var(--border)">
+</div>
+
+<script>
+  const cfg = {{ config | tojson }};
+  let localCfg = JSON.parse(JSON.stringify(cfg));
+
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (id === 'alerts') loadAlerts();
+    if (id === 'snapshots') loadSnapshots();
+    if (id === 'recordings') loadRecordings();
+    if (id === 'dashboard') loadDashboard();
+  }
+
+  function toggleToggle(id) {
+    const t = document.getElementById(id);
+    t.classList.toggle('on');
+  }
+  function setToggle(id, val) {
+    const t = document.getElementById(id);
+    if (val) t.classList.add('on'); else t.classList.remove('on');
+  }
+  function getToggle(id) { return document.getElementById(id).classList.contains('on'); }
+
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast toast-' + type;
+    setTimeout(() => { t.style.display = 'none'; t.className = 'toast'; }, 3000);
+  }
+
+  // Load config into UI
+  function loadUI() {
+    // Camera grid
+    const grid = document.getElementById('camConfigGrid');
+    grid.innerHTML = localCfg.cameras.map(c => `
+      <div class="cam-item">
+        <div class="cam-item-header">
+          <div class="cam-item-title"><i class="fas fa-video"></i> Camera ${c.id + 1}</div>
+          <div class="toggle ${c.enabled ? 'on' : ''}" id="cam-en-${c.id}" onclick="toggleToggle('cam-en-${c.id}')"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" class="form-input" id="cam-name-${c.id}" value="${c.name}">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Source (index/URL/path)</label>
+          <input type="text" class="form-input" id="cam-src-${c.id}" value="${c.source}" placeholder="0">
+        </div>
+      </div>
+    `).join('');
+
+    // Detection
+    const conf = localCfg.confidence_threshold || 0.5;
+    document.getElementById('conf-threshold').value = conf;
+    document.getElementById('conf-val').textContent = conf.toFixed(2);
+    document.getElementById('conf-threshold').oninput = function() {
+      document.getElementById('conf-val').textContent = parseFloat(this.value).toFixed(2);
+    };
+    document.getElementById('alert-cooldown').value = localCfg.alert_cooldown || 60;
+    document.getElementById('rec-duration').value = localCfg.recording_duration || 30;
+    document.getElementById('max-snaps').value = localCfg.max_snapshots || 500;
+    setToggle('tog-detect', localCfg.detection_enabled !== false);
+    setToggle('tog-snaps', localCfg.save_snapshots !== false);
+    setToggle('tog-recs', localCfg.save_recordings !== false);
+
+    // Schedule
+    const s = localCfg.detection_schedule || {};
+    setToggle('tog-sched', s.enabled);
+    document.getElementById('sched-start').value = s.start_time || '08:00';
+    document.getElementById('sched-end').value = s.end_time || '18:00';
+    const days = s.days || [];
+    document.querySelectorAll('.day-btn').forEach(b => {
+      if (days.includes(b.dataset.day)) b.classList.add('selected');
+    });
+
+    // Telegram
+    setToggle('tog-tg', localCfg.telegram_enabled);
+    document.getElementById('tg-token').value = localCfg.telegram_bot_token || '';
+    document.getElementById('tg-chatid').value = localCfg.telegram_chat_id || '';
+    setToggle('tog-notify', localCfg.notify_on_detection !== false);
+  }
+
+  function toggleDay(btn) { btn.classList.toggle('selected'); }
+
+  function getSelectedDays() {
+    return [...document.querySelectorAll('.day-btn.selected')].map(b => b.dataset.day);
+  }
+
+  async function saveAllSettings() {
+    const cams = localCfg.cameras.map(c => ({
+      id: c.id,
+      name: document.getElementById(`cam-name-${c.id}`)?.value || c.name,
+      source: document.getElementById(`cam-src-${c.id}`)?.value || c.source,
+      enabled: getToggle(`cam-en-${c.id}`)
+    }));
+
+    const newCfg = {
+      cameras: cams,
+      confidence_threshold: parseFloat(document.getElementById('conf-threshold').value),
+      alert_cooldown: parseInt(document.getElementById('alert-cooldown').value),
+      recording_duration: parseInt(document.getElementById('rec-duration').value),
+      max_snapshots: parseInt(document.getElementById('max-snaps').value),
+      detection_enabled: getToggle('tog-detect'),
+      save_snapshots: getToggle('tog-snaps'),
+      save_recordings: getToggle('tog-recs'),
+      detection_schedule: {
+        enabled: getToggle('tog-sched'),
+        start_time: document.getElementById('sched-start').value,
+        end_time: document.getElementById('sched-end').value,
+        days: getSelectedDays()
+      },
+      telegram_enabled: getToggle('tog-tg'),
+      telegram_bot_token: document.getElementById('tg-token').value,
+      telegram_chat_id: document.getElementById('tg-chatid').value,
+      notify_on_detection: getToggle('tog-notify')
+    };
+
+    try {
+      const r = await fetch('/api/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(newCfg) });
+      if (r.ok) showToast('✅ Settings saved successfully!');
+      else showToast('Failed to save', 'error');
+    } catch(e) { showToast('Error saving', 'error'); }
+  }
+
+  async function testTelegram() {
+    showToast('Sending test message...');
+    const r = await fetch('/api/test_telegram');
+    const d = await r.json();
+    if (d.success) showToast('✅ Telegram test sent!');
+    else showToast('❌ Telegram failed. Check token/chat ID.', 'error');
+  }
+
+  async function toggleDetection() {
+    const r = await fetch('/api/toggle_detection', {method:'POST'});
+    const d = await r.json();
+    showToast(d.detection_enabled ? '✅ Detection enabled' : '⏸ Detection disabled');
+    loadDashboard();
+  }
+
+  async function clearAlerts() {
+    if (!confirm('Clear all alerts?')) return;
+    await fetch('/api/clear_alerts', {method:'POST'});
+    showToast('Alert log cleared');
+    loadAlerts();
+  }
+
+  async function loadDashboard() {
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    document.getElementById('ov-cams').textContent = d.cameras_active || 0;
+    document.getElementById('ov-total').textContent = d.total_detections || 0;
+    document.getElementById('ov-today').textContent = d.today_detections || 0;
+    document.getElementById('ov-alerts').textContent = d.alerts_sent || 0;
+    document.getElementById('si-yolo').textContent = d.yolo_available ? 'YOLO v3-Tiny' : 'HOG Fallback';
+    document.getElementById('si-sched').innerHTML = d.schedule_active ? '<span style="color:var(--accent2)">Active</span>' : '<span style="color:var(--warn)">Inactive (schedule)</span>';
+    document.getElementById('si-detect').innerHTML = '<span style="color:' + (d.detection_enabled !== false ? 'var(--accent2)' : 'var(--danger)') + '">' + (d.detection_enabled !== false ? 'Enabled' : 'Disabled') + '</span>';
+    document.getElementById('si-last').textContent = d.last_detection || '—';
+    
+    const camGrid = document.getElementById('cam-status-grid');
+    if (d.camera_status) {
+      camGrid.innerHTML = Object.entries(d.camera_status).map(([id, st]) => `
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--dim)">Camera ${parseInt(id)+1}</span>
+          <span class="badge ${st === 'online' ? 'badge-blue' : 'badge-red'}">${st}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  async function loadAlerts() {
+    const r = await fetch('/api/alerts');
+    const d = await r.json();
+    const tbody = document.getElementById('alertTableBody');
+    if (!d.alerts || d.alerts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--dim)">No alerts recorded</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.alerts.map(a => `
+      <tr>
+        <td style="color:var(--dim)">#${a.id}</td>
+        <td style="color:var(--accent)">${a.camera}</td>
+        <td style="font-family:'Share Tech Mono';font-size:12px">${a.time}</td>
+        <td><span class="badge badge-red">👤 ${a.count}</span></td>
+        <td>${a.snapshot ? `<img src="/snapshot/${a.snapshot}" style="height:32px;border-radius:3px;cursor:pointer" onclick="viewSnap('/snapshot/${a.snapshot}')">` : '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function loadSnapshots() {
+    const r = await fetch('/api/snapshots');
+    const d = await r.json();
+    const grid = document.getElementById('snapshotGrid');
+    if (d.length === 0) { grid.innerHTML = '<div style="color:var(--dim);font-size:13px">No snapshots yet</div>'; return; }
+    grid.innerHTML = d.map(s => `
+      <div class="media-item" onclick="viewSnap('/snapshot/${s.path}')">
+        <img src="/snapshot/${s.path}" alt="${s.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%22100%22><rect fill=%22%23111%22 width=%22150%22 height=%22100%22/></svg>'">
+        <div class="media-meta">${s.time}</div>
+      </div>
+    `).join('');
+  }
+
+  async function loadRecordings() {
+    const r = await fetch('/api/recordings');
+    const d = await r.json();
+    const list = document.getElementById('recordingsList');
+    if (d.length === 0) { list.innerHTML = '<div style="color:var(--dim);font-size:13px">No recordings yet</div>'; return; }
+    list.innerHTML = d.map(r => `
+      <div class="rec-item">
+        <div class="rec-info">
+          <div class="rec-name"><i class="fas fa-film"></i> ${r.name}</div>
+          <div class="rec-meta">${r.time} · ${r.size} MB</div>
+        </div>
+        <span class="badge badge-blue">${r.size} MB</span>
+      </div>
+    `).join('');
+  }
+
+  function viewSnap(src) {
+    document.getElementById('snapModalImg').src = src;
+    document.getElementById('snapModal').style.display = 'flex';
+  }
+
+  async function changePassword() {
+    const p1 = document.getElementById('admin-pass').value;
+    const p2 = document.getElementById('admin-pass2').value;
+    if (!p1) { showToast('Enter a password', 'error'); return; }
+    if (p1 !== p2) { showToast('Passwords do not match', 'error'); return; }
+    await fetch('/api/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({admin_password: p1}) });
+    showToast('✅ Password updated');
+  }
+
+  // Init
+  loadUI();
+  loadDashboard();
+  setInterval(loadDashboard, 5000);
+</script>
+</body>
+</html>
