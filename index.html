@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Motion Detection — Surveillance System</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg-deep: #050810;
+    --bg-panel: #0a0f1e;
+    --bg-card: #0d1428;
+    --border: #1a2a4a;
+    --border-glow: #0066ff;
+    --accent: #00d4ff;
+    --accent2: #00ff88;
+    --danger: #ff2d55;
+    --warn: #ff9500;
+    --text: #c8d8f0;
+    --text-dim: #4a6080;
+    --grid: rgba(0, 100, 255, 0.06);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: 'Exo 2', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image: 
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Scanline effect */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(90deg, rgba(0,20,60,0.95), rgba(5,8,16,0.95));
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 30px rgba(0,100,255,0.15);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, #0066ff, #00d4ff);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 20px rgba(0,100,255,0.5);
+    animation: pulse-logo 3s ease-in-out infinite;
+  }
+  @keyframes pulse-logo {
+    0%, 100% { box-shadow: 0 0 20px rgba(0,100,255,0.5); }
+    50% { box-shadow: 0 0 35px rgba(0,212,255,0.8); }
+  }
+  .logo-text h1 { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 2px; text-transform: uppercase; }
+  .logo-text span { font-family: 'Share Tech Mono'; font-size: 11px; color: var(--accent); letter-spacing: 3px; }
+  
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .system-time { font-family: 'Share Tech Mono'; font-size: 14px; color: var(--accent); }
+  .status-badge {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .status-badge.online { background: rgba(0,255,136,0.1); border: 1px solid var(--accent2); color: var(--accent2); }
+  .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); animation: blink 1s infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+  
+  .btn-admin {
+    padding: 8px 16px; border-radius: 6px;
+    background: rgba(0,100,255,0.15); border: 1px solid var(--border-glow);
+    color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-admin:hover { background: rgba(0,100,255,0.3); }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 1px; background: var(--border); border-bottom: 1px solid var(--border);
+  }
+  .stat-item {
+    background: var(--bg-panel); padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .stat-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    flex-shrink: 0;
+  }
+  .stat-icon.blue { background: rgba(0,100,255,0.15); color: var(--accent); }
+  .stat-icon.green { background: rgba(0,255,136,0.1); color: var(--accent2); }
+  .stat-icon.red { background: rgba(255,45,85,0.1); color: var(--danger); }
+  .stat-icon.orange { background: rgba(255,149,0,0.1); color: var(--warn); }
+  .stat-icon.cyan { background: rgba(0,212,255,0.1); color: var(--accent); }
+  .stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .stat-value { font-family: 'Share Tech Mono'; font-size: 20px; color: #fff; font-weight: bold; }
+
+  /* ── MAIN LAYOUT ── */
+  .main-layout { display: flex; height: calc(100vh - 64px - 65px); overflow: hidden; }
+  
+  /* ── CAMERA GRID ── */
+  .camera-section { flex: 1; padding: 16px; overflow-y: auto; }
+  .camera-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr; gap: 12px;
+    height: 100%;
+  }
+  .camera-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; position: relative;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .camera-card.alert { border-color: var(--danger) !important; box-shadow: 0 0 20px rgba(255,45,85,0.4) !important; animation: alert-flash 0.5s ease 3; }
+  @keyframes alert-flash {
+    0%, 100% { box-shadow: 0 0 20px rgba(255,45,85,0.4); }
+    50% { box-shadow: 0 0 40px rgba(255,45,85,0.8); }
+  }
+  .camera-card:hover { border-color: var(--border-glow); }
+  
+  .cam-header {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+    padding: 8px 12px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.8), transparent);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cam-name { font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 6px; }
+  .cam-indicator { width: 8px; height: 8px; border-radius: 50%; }
+  .cam-indicator.online { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: blink 1.5s infinite; }
+  .cam-indicator.offline { background: #666; }
+  .cam-indicator.alert { background: var(--danger); box-shadow: 0 0 10px var(--danger); animation: blink 0.3s infinite; }
+  
+  .cam-footer {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+    padding: 8px 12px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.8), transparent);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cam-badge {
+    padding: 3px 8px; border-radius: 4px; font-size: 11px; font-family: 'Share Tech Mono';
+    font-weight: bold; letter-spacing: 1px;
+  }
+  .cam-badge.recording { background: rgba(255,45,85,0.3); color: var(--danger); border: 1px solid var(--danger); }
+  .cam-badge.monitoring { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
+  .human-badge { padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 700; background: rgba(255,45,85,0.8); color: #fff; display: none; }
+  .human-badge.show { display: block; }
+  
+  .cam-feed { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cam-placeholder {
+    width: 100%; height: 100%; background: #060a14;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  }
+  .cam-placeholder i { font-size: 40px; color: var(--text-dim); }
+  .cam-placeholder span { font-size: 13px; color: var(--text-dim); }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 320px; border-left: 1px solid var(--border);
+    background: var(--bg-panel); display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px; font-weight: 600; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--accent);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .alert-list { flex: 1; overflow-y: auto; }
+  .alert-item {
+    padding: 12px 16px; border-bottom: 1px solid rgba(26,42,74,0.5);
+    transition: background 0.2s; cursor: pointer;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .alert-item:hover { background: rgba(0,100,255,0.05); }
+  .alert-thumb {
+    width: 50px; height: 38px; border-radius: 4px;
+    background: var(--bg-deep); object-fit: cover; flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .alert-info { flex: 1; min-width: 0; }
+  .alert-cam { font-size: 12px; font-weight: 600; color: var(--accent2); }
+  .alert-time { font-family: 'Share Tech Mono'; font-size: 11px; color: var(--text-dim); }
+  .alert-count { font-size: 11px; color: var(--danger); font-weight: 600; margin-top: 2px; }
+  .no-alerts { padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 13px; }
+  .no-alerts i { font-size: 32px; margin-bottom: 8px; display: block; }
+
+  /* ── TOAST ── */
+  #toast-container {
+    position: fixed; top: 80px; right: 20px; z-index: 9998;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 12px 16px; border-radius: 8px; min-width: 280px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    animation: slide-in 0.3s ease;
+  }
+  .toast.danger { background: rgba(255,45,85,0.15); border: 1px solid var(--danger); color: #fff; }
+  .toast.success { background: rgba(0,255,136,0.1); border: 1px solid var(--accent2); color: #fff; }
+  @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  
+  /* ── MODAL ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; max-width: 600px; width: 90%;
+    position: relative;
+  }
+  .modal img { width: 100%; border-radius: 8px; margin-top: 12px; }
+  .modal-close { position: absolute; top: 12px; right: 12px; background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 18px; }
+  .modal-close:hover { color: #fff; }
+  .modal h3 { font-size: 16px; color: var(--accent); }
+  .modal p { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-glow); }
+
+  .yolo-badge {
+    padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600;
+    letter-spacing: 1px;
+  }
+  .yolo-badge.active { background: rgba(0,255,136,0.1); border: 1px solid var(--accent2); color: var(--accent2); }
+  .yolo-badge.fallback { background: rgba(255,149,0,0.1); border: 1px solid var(--warn); color: var(--warn); }
+
+  @media (max-width: 900px) {
+    .stats-bar { grid-template-columns: repeat(3, 1fr); }
+    .main-layout { flex-direction: column; height: auto; }
+    .sidebar { width: 100%; height: 300px; border-left: none; border-top: 1px solid var(--border); }
+    .camera-grid { height: 60vh; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon"><i class="fas fa-video"></i></div>
+    <div class="logo-text">
+      <h1>Motion Detection</h1>
+      <span>AI-POWERED SURVEILLANCE</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="yolo-badge {% if yolo_available %}active{% else %}fallback{% endif %}">
+      <i class="fas fa-brain"></i> {% if yolo_available %}YOLO v3{% else %}HOG DETECT{% endif %}
+    </span>
+    <div class="status-badge online"><div class="dot"></div> SYSTEM ONLINE</div>
+    <div class="system-time" id="sysTime">--:--:--</div>
+    <a href="/admin" class="btn-admin"><i class="fas fa-cog"></i> Admin</a>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-icon blue"><i class="fas fa-video"></i></div>
+    <div><div class="stat-label">Active Cameras</div><div class="stat-value" id="statCams">0</div></div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-icon red"><i class="fas fa-person-running"></i></div>
+    <div><div class="stat-label">Total Detections</div><div class="stat-value" id="statTotal">0</div></div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-icon orange"><i class="fas fa-calendar-day"></i></div>
+    <div><div class="stat-label">Today</div><div class="stat-value" id="statToday">0</div></div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-icon cyan"><i class="fab fa-telegram"></i></div>
+    <div><div class="stat-label">Alerts Sent</div><div class="stat-value" id="statAlerts">0</div></div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-icon green"><i class="fas fa-clock"></i></div>
+    <div><div class="stat-label">Last Detection</div><div class="stat-value" style="font-size:13px" id="statLast">—</div></div>
+  </div>
+</div>
+
+<div class="main-layout">
+  <div class="camera-section">
+    <div class="camera-grid" id="cameraGrid">
+      {% for i in range(4) %}
+      <div class="camera-card" id="camCard{{ i }}">
+        <div class="cam-header">
+          <div class="cam-name">
+            <span class="cam-indicator offline" id="camInd{{ i }}"></span>
+            <span id="camName{{ i }}">Camera {{ i + 1 }}</span>
+          </div>
+          <span class="cam-badge monitoring" id="camStatus{{ i }}">LOADING</span>
+        </div>
+        <img class="cam-feed" id="camFeed{{ i }}" src="/video_feed/{{ i }}" alt="Camera {{ i + 1 }}" onerror="this.style.display='none'">
+        <div class="cam-footer">
+          <span class="cam-badge recording" id="camRec{{ i }}" style="display:none"><i class="fas fa-circle" style="font-size:8px"></i> REC</span>
+          <span class="human-badge" id="humanBadge{{ i }}"></span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header"><i class="fas fa-bell"></i> Live Alerts</div>
+    <div class="alert-list" id="alertList">
+      <div class="no-alerts"><i class="fas fa-shield-halved"></i>No detections yet.<br>System is monitoring...</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<div class="modal-overlay" id="snapModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    <h3 id="modalTitle">Detection Snapshot</h3>
+    <p id="modalTime"></p>
+    <img id="modalImg" src="" alt="Snapshot">
+  </div>
+</div>
+
+<script>
+  const socket = io();
+  let alerts = [];
+
+  // Clock
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('sysTime').textContent = now.toLocaleTimeString('en-US', {hour12: false});
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // Stats polling
+  async function fetchStats() {
+    try {
+      const r = await fetch('/api/stats');
+      const d = await r.json();
+      document.getElementById('statCams').textContent = d.cameras_active || 0;
+      document.getElementById('statTotal').textContent = d.total_detections || 0;
+      document.getElementById('statToday').textContent = d.today_detections || 0;
+      document.getElementById('statAlerts').textContent = d.alerts_sent || 0;
+      document.getElementById('statLast').textContent = d.last_detection ? d.last_detection.split(' ')[1] : '—';
+      
+      // Update camera indicators
+      if (d.camera_status) {
+        for (let i = 0; i < 4; i++) {
+          const ind = document.getElementById(`camInd${i}`);
+          const status = d.camera_status[i] || 'offline';
+          ind.className = 'cam-indicator ' + (status === 'online' ? 'online' : 'offline');
+          document.getElementById(`camStatus${i}`).textContent = status.toUpperCase();
+        }
+      }
+      // Human counts
+      if (d.human_counts) {
+        for (let i = 0; i < 4; i++) {
+          const count = d.human_counts[i] || 0;
+          const badge = document.getElementById(`humanBadge${i}`);
+          if (count > 0) {
+            badge.textContent = `👤 ${count} HUMAN${count > 1 ? 'S' : ''}`;
+            badge.classList.add('show');
+            document.getElementById(`camInd${i}`).className = 'cam-indicator alert';
+          } else {
+            badge.classList.remove('show');
+          }
+        }
+      }
+    } catch(e) {}
+  }
+  setInterval(fetchStats, 2000);
+  fetchStats();
+
+  // Alerts polling
+  async function fetchAlerts() {
+    try {
+      const r = await fetch('/api/alerts');
+      const d = await r.json();
+      if (d.alerts && d.alerts.length > 0) {
+        renderAlerts(d.alerts);
+      }
+    } catch(e) {}
+  }
+  setInterval(fetchAlerts, 3000);
+  fetchAlerts();
+
+  function renderAlerts(alertData) {
+    const list = document.getElementById('alertList');
+    if (alertData.length === 0) {
+      list.innerHTML = '<div class="no-alerts"><i class="fas fa-shield-halved"></i>No detections yet.<br>System is monitoring...</div>';
+      return;
+    }
+    list.innerHTML = alertData.map(a => `
+      <div class="alert-item" onclick="showSnapshot('${a.snapshot || ''}', '${a.camera}', '${a.time}')">
+        ${a.snapshot ? `<img class="alert-thumb" src="/snapshot/${a.snapshot}" onerror="this.style.display='none'">` : '<div class="alert-thumb" style="display:flex;align-items:center;justify-content:center;color:#4a6080"><i class="fas fa-image"></i></div>'}
+        <div class="alert-info">
+          <div class="alert-cam"><i class="fas fa-video" style="font-size:10px"></i> ${a.camera}</div>
+          <div class="alert-time">${a.time}</div>
+          <div class="alert-count">⚠ ${a.count} human(s) detected</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Socket events
+  socket.on('human_detected', (data) => {
+    showToast(`🚨 Human detected on ${data.camera}!`, 'danger');
+    const card = document.getElementById(`camCard${data.camera_id}`);
+    if (card) {
+      card.classList.add('alert');
+      setTimeout(() => card.classList.remove('alert'), 3000);
+    }
+    document.getElementById(`camRec${data.camera_id}`).style.display = 'block';
+    setTimeout(() => document.getElementById(`camRec${data.camera_id}`).style.display = 'none', 35000);
+    fetchAlerts();
+    fetchStats();
+  });
+
+  function showToast(msg, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<i class="fas ${type === 'danger' ? 'fa-exclamation-triangle' : 'fa-check-circle'}"></i> ${msg}`;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  }
+
+  function showSnapshot(path, cam, time) {
+    if (!path) return;
+    document.getElementById('modalTitle').textContent = cam + ' — Detection';
+    document.getElementById('modalTime').textContent = time;
+    document.getElementById('modalImg').src = '/snapshot/' + path;
+    document.getElementById('snapModal').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('snapModal').classList.remove('show');
+  }
+
+  document.getElementById('snapModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+</script>
+</body>
+</html>
